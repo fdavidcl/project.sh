@@ -47,11 +47,6 @@ MF="$PR_DIR/$MAKEFILE_NAME"
 [[ -d $PR_DIR ]] && {
 	[[ -f $PR_DIR/Makefile ]] && {
 		echo "Existing project in $PR_DIR. Updating..."
-
-		LAST=`pwd`
-		cd $PR_DIR/src/
-		LSRC=`ls -1 *.cpp | rev | cut -d'.' -f2- | rev`
-		cd $LAST
 	} || {
 		[[ -d $PR_DIR/src/ ]] && {
 			echo "Existing project in $PR_DIR. Creating new Makefile..."
