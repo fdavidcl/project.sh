@@ -3,78 +3,118 @@
 # project.sh
 # Date: 21/11/2011
 # Author: David Charte
-# Version: 2.1
+# Version: 2.5
 # Description: Creates directory hierarchies for C++ projects,
 #              and manages Makefiles.
 # License: WTFPL (Do What The Fuck You Want To Public License)
 # Thanks to Iván Calle for beta-testing!
 
+
+#---------------------------------------------------------------#
+# DEFAULT VARIABLES: Change these to whatever you like          #
+#---------------------------------------------------------------#
+
+# Will use this compiler for Makefiles. Default: "g++"
+COMPILER="g++"
+
+# Content for the defailt main.cpp file. Default: "\n\nint main(int argc, char *argv[]){\n\t\n}"
+DEFAULT_MAIN="\n\nint main(int argc, char *argv[]){\n\t\n}"
+
+# Makefile name. Default: "Makefile"
+MAKEFILE_NAME="Makefile"
+
+
+#---------------------------------------------------------------#
+# SCRIPT: Creates new directories and files if necessary,       #
+#         writes makefile                                       #
+#---------------------------------------------------------------#
+
+# Finds directory and name for the project
 [[ $# -gt 0 ]] && {
-    NM="$1"
-	PR_DIR="$2./$NM"
+	# Project with name and optional directory
+	NM="$1"
+	[[ $# -gt 1 ]] && PR_DIR="$2/./$NM" || PR_DIR="./$NM"
 } || {
-	PR_DIR="./"
+	# If no arguments are given, we'll use the current directory as a project
 	NM="`pwd | rev | cut -d"/" -f1 | rev`"
-   echo "Using current directory... (project $NM)."
+	PR_DIR="./"
+	echo "Using current directory... (project $NM)."
 }
 
+MF="$PR_DIR/$MAKEFILE_NAME"
+
+# Prepares directories and files before writing Makefile
 [[ -d $PR_DIR ]] && {
-   [[ -f $PR_DIR/Makefile ]] || {
-      echo "Directory $PR_DIR exists and it's not a project. Aborting."
-      exit 1;
-   } && {
-      printf "Existing project in $PR_DIR. Updating...\n"
-      
-      LAST=`pwd`
-      cd $PR_DIR/src/
-      LSRC=`ls -1 *.cpp | rev | cut -d'.' -f2- | rev`
-      cd $LAST
-      MF="$PR_DIR/Makefile"
-      
-	   printf 'BIN=./bin\nDOC=./doc\nINCLUDE=./include\nLIB=./lib\nOBJ=./obj\nSRC=./src\n\n' > $MF &&
-	   printf 'all:' >> $MF &&
-	   for F in $LSRC; do
-	      printf ' $(OBJ)/'"$F.o" >> $MF 
-	   done
-	   printf "\n" >> $MF
-      echo "	g++ -o \$(BIN)/$NM $^" >> $MF &&
-	   for F in $LSRC; do 
-         echo '$(OBJ)/'"$F"'.o: $(SRC)/'"$F"'.cpp'" `[[ -f $PR_DIR/include/$F.h ]] && echo '$(INCLUDE)/'$F'.h'`" >> $MF &&
-         echo '	g++ -o $(OBJ)/'"$F"'.o -c $< -I$(INCLUDE)' >> $MF
-      done
-      echo 'clean:' >> $MF &&
-      echo '	rm $(OBJ)/*.o' >> $MF &&
-      echo 'doc:' >> $MF &&
-      echo '	doxygen $(DOC)/doxys/Doxyfile' >> $MF &&
-      echo '.PHONY: all clean doc' >> $MF &&
-      printf " [ OK ] Makefile updated\n"
-   }
+	[[ -f $PR_DIR/Makefile ]] && {
+		echo "Existing project in $PR_DIR. Updating..."
+
+		LAST=`pwd`
+		cd $PR_DIR/src/
+		LSRC=`ls -1 *.cpp | rev | cut -d'.' -f2- | rev`
+		cd $LAST
+	} || {
+		[[ -d $PR_DIR/src/ ]] && {
+			echo "Existing project in $PR_DIR. Creating new Makefile..."
+		} || {
+			echo "Existing directory $PR_DIR is not a project (directory src/ is necessary). Aborting..."
+			exit 1
+		}
+	}
 } || {
-  	printf "Creating new project $NM...\n"
+	echo "Creating new project $NM..."
 
-   mkdir $PR_DIR && printf "  [ OK ]  Project directory created\n"
+	mkdir $PR_DIR && {
+		echo "  [ OK ]  Project directory created"
+	} || {
+		echo "  [ ERROR ] Couldn't create project directory"
+		exit 2
+	}
 
-   mkdir $PR_DIR/bin $PR_DIR/doc $PR_DIR/include $PR_DIR/lib $PR_DIR/obj $PR_DIR/src &&
-   printf "  [ OK ]  Directory hierarchy created\n"
+	mkdir $PR_DIR/bin $PR_DIR/doc $PR_DIR/include $PR_DIR/lib $PR_DIR/obj $PR_DIR/src && {
+		echo "  [ OK ]  Directory hierarchy created"
+	} || {
+		echo "  [ ERROR ] Couldn't create directory hierarchy"
+		exit 2 
+	}
 
-   # Creamos los archivos por defecto
-   touch $PR_DIR/src/main.cpp &&
-   printf "\n\nint main(int argc, char *argv[]){\n\t\n}" > $PR_DIR/src/main.cpp &&
-   printf "  [ OK ]  New main.cpp file created\n"
-
-   # Creamos el Makefile por defecto
-   MF="$PR_DIR/Makefile" &&
-   touch $MF
-
-   printf 'BIN=./bin\nDOC=./doc\nINCLUDE=./include\nLIB=./lib\nOBJ=./obj\nSRC=./src\n\n' > $MF &&
-   echo 'all: $(OBJ)/main.o' >> $MF &&
-   echo "	g++ -o \$(BIN)/$NM $^" >> $MF &&
-   echo '$(OBJ)/main.o: $(SRC)/main.cpp' >> $MF &&
-   echo '	g++ -o $(OBJ)/main.o -c $^ -I$(INCLUDE)' >> $MF &&
-   echo 'clean:' >> $MF &&
-   echo '	rm $(OBJ)/*.o' >> $MF &&
-   echo 'doc:' >> $MF &&
-   echo '	doxygen $(DOC)/doxys/Doxyfile' >> $MF &&
-   echo '.PHONY: all clean doc' >> $MF &&
-   printf "  [ OK ]  New Makefile created\n"
+	# Creates default files
+	touch $PR_DIR/src/main.cpp && printf $DEFAULT_MAIN > $PR_DIR/src/main.cpp && {
+		echo "  [ OK ]  New main.cpp file created" 
+	} || { 
+		echo "  [ ERROR ] Couldn't create main.cpp file"
+		exit 2 
+	}
+	
+	# Creates default Makefile
+	touch $MF && {
+		echo "  [ OK ]  New Makefile created" 
+	} || {
+		echo "  [ ERROR ] Couldn't create new Makefile"
+		exit 2
+	}
 }
+
+# Lists .cpp or .h files
+LAST=`pwd`
+cd $PR_DIR/src/
+LSRC=`ls -1 *.cpp | rev | cut -d'.' -f2- | rev`
+cd $LAST
+
+# Writes/updates Makefile
+printf "GXX=$COMPILER\nBIN=./bin\nDOC=./doc\nINCLUDE=./include\nLIB=./lib\nOBJ=./obj\nSRC=./src\n\n" > $MF &&
+printf 'all:' >> $MF &&
+for F in $LSRC; do
+	printf ' $(OBJ)/'"$F.o" >> $MF 
+done
+printf "\n" >> $MF
+echo '   $(GXX) -o $(BIN)/'"$NM"' $^' >> $MF &&
+for F in $LSRC; do 
+	echo '$(OBJ)/'"$F"'.o: $(SRC)/'"$F"'.cpp'" `[[ -f $PR_DIR/include/$F.h ]] && echo '$(INCLUDE)/'$F'.h'`" >> $MF &&
+	echo '   $(GXX) -o $(OBJ)/'"$F"'.o -c $< -I$(INCLUDE)' >> $MF
+done
+echo 'clean:' >> $MF &&
+echo '   rm $(OBJ)/*.o' >> $MF &&
+echo 'doc:' >> $MF &&
+echo '   doxygen $(DOC)/doxys/Doxyfile' >> $MF &&
+echo '.PHONY: all clean doc' >> $MF &&
+echo "  [ OK ]  Makefile updated"
